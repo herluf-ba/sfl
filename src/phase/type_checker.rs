@@ -142,8 +142,8 @@ impl TypeChecker {
                 let s3 = self.unify(
                     &s2.apply(&e1_t),
                     &TType::Application(TypeFunc::Func {
-                        input: Box::new(var.clone()),
-                        output: Box::new(e2_t),
+                        input: Box::new(e2_t),
+                        output: Box::new(var.clone()),
                     }),
                 )?;
 
@@ -158,6 +158,12 @@ impl TypeChecker {
                 Ok((s2.apply(&s1), e2_t))
             }
             Ast::Err => Err(()),
+            Ast::BinaryOp(_, e1, e2) => {
+                let (s1, e1) = self.w(ctx, e1)?;
+                let (s2, e2) = self.w(&s1.apply(ctx), e2)?;
+                self.unify(&s2.apply(&e1), &e2)?;
+                Ok((s1.apply(&s1), e2))
+            }
         }
     }
 }

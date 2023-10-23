@@ -73,7 +73,19 @@ fn build(tree: &Tree) -> Ast {
             Ast::Literal(v.clone())
         }
 
-        BinaryOp => todo!(),
+        BinaryOp => {
+            let Child::Tree(ref e1) = tree.children[0] else {
+                return Ast::Err;
+            };
+            let Child::Token(ref op) = tree.children[1] else {
+                return Ast::Err;
+            };
+            let Child::Tree(ref e2) = tree.children[2] else {
+                return Ast::Err;
+            };
+
+            Ast::BinaryOp(op.clone(), Box::new(build(e1)), Box::new(build(e2)))
+        }
         If => todo!(),
     }
 }

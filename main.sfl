@@ -1,1 +1,1 @@
-let x = \x -> true in x false
+(\x -> true) 1

@@ -11,6 +11,7 @@ pub enum Ast {
     Literal(Token),
     Let(Token, Box<Ast>, Box<Ast>),
     Name(Token),
+    BinaryOp(Token, Box<Ast>, Box<Ast>),
 }
 
 impl Ast {
@@ -32,6 +33,7 @@ impl Ast {
             Ast::Literal(_) => "Literal",
             Ast::Let(_, _, _) => "Let",
             Ast::Name(_) => "Name",
+            Ast::BinaryOp(_, _, _) => "BinaryOp",
         };
 
         let children_str = match self {
@@ -41,6 +43,11 @@ impl Ast {
             Ast::Let(t, e1, e2) => vec![
                 format!("  '{}'", t.text()),
                 e1.print(level + 1),
+                e2.print(level + 1),
+            ],
+            Ast::BinaryOp(op, e1, e2) => vec![
+                e1.print(level + 1),
+                format!("  '{}'", op.text()),
                 e2.print(level + 1),
             ],
             _ => Vec::new(),
