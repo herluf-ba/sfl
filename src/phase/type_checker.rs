@@ -234,8 +234,7 @@ impl Phase<Input, Output> for TypeChecker {
                 Err(_) => {
                     errs.append(&mut self.errors);
                 }
-                Ok((s, t)) => {
-                    println!("{:?}", s);
+                Ok((_, t)) => {
                     out.insert(source_path.clone(), t);
                 }
             };

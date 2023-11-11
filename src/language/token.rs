@@ -44,7 +44,6 @@ pub enum TokenKind {
     Colon,
     Arrow,
     Equal,
-    Comment(String),
 
     // Special
     Eof,
@@ -60,7 +59,6 @@ impl Display for TokenKind {
                 TokenKind::LiteralInt(i) => i.to_string(),
                 TokenKind::LiteralBool(i) => i.to_string(),
                 TokenKind::Name(ref i) => i.to_owned(),
-                TokenKind::Comment(ref i) => i.to_owned(),
                 TokenKind::KeywordIf => "if".to_string(),
                 TokenKind::KeywordElse => "else".to_string(),
                 TokenKind::KeywordThen => "then".to_string(),

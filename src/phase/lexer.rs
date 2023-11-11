@@ -117,15 +117,14 @@ impl Lexer {
         TokenKind::Name(lexeme)
     }
 
-    fn comment(self: &mut Self) -> TokenKind {
-        let mut p = self.nth(0);
-        while !self.eof() && p != '\n' {
+    fn comments(self: &mut Self) {
+        while self.nth(0) == '#' {
             self.advance();
-            p = self.nth(0);
+            while !self.eof() && self.nth(0) != '\n' {
+                self.advance();
+            }
+            self.advance();
         }
-
-        let lexeme = self.lexeme().expect("lexeme to be available");
-        TokenKind::Comment(lexeme)
     }
 
     fn position(self: &Self) -> Position {
@@ -139,6 +138,7 @@ impl Lexer {
 
     fn next_token(self: &mut Self) -> Option<Token> {
         self.whitespace();
+        self.comments();
         if self.eof() {
             return None;
         }
@@ -154,7 +154,6 @@ impl Lexer {
             Some('(') => TokenKind::ParenL,
             Some(')') => TokenKind::ParenR,
             Some('\\') => TokenKind::Backslash,
-            Some('#') => self.comment(),
             Some(_) if self.keyword("if") => TokenKind::KeywordIf,
             Some(_) if self.keyword("then") => TokenKind::KeywordThen,
             Some(_) if self.keyword("else") => TokenKind::KeywordElse,

@@ -11,3 +11,22 @@ This is a hobby project aiming to implement a small functional language.
 
 ## TODO:
 - figure out a way to test for regressions... Have some sort of folder of known to work files?  
+
+
+## Syntax
+```
+  def foo(a: number, b: number): number { 
+    a + b
+  }
+
+  def bar(a: number): number {
+      if a > 2 { a - 2 } else { a }
+  }
+  
+  def main(): number {
+    let fooo = foo;
+    let a = foo(fooo(1, 2), 3);
+    let b = bar(1);
+    a / b
+  }
+```

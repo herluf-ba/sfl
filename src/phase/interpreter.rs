@@ -1,7 +1,10 @@
 use std::{collections::HashMap, fmt::Display, path::PathBuf, str::FromStr};
 
 use crate::{
-    language::{ast::Ast, token::TokenKind},
+    language::{
+        ast::Ast,
+        token::{Token, TokenKind},
+    },
     message::Message,
     phase::{Phase, PhaseResult},
 };
@@ -14,6 +17,7 @@ pub struct Interpreter {
 pub enum Value {
     Bool(bool),
     Int(usize),
+    Func(Token, Ast),
 }
 
 impl Display for Value {
@@ -21,6 +25,7 @@ impl Display for Value {
         match self {
             Value::Bool(v) => write!(f, "{}", v),
             Value::Int(v) => write!(f, "{}", v),
+            Value::Func(_, _) => write!(f, "func",), // TODO: Can we do better here?
         }
     }
 }
@@ -79,10 +84,15 @@ impl Interpreter {
                     _ => panic!("SFL ERROR: unhandled binary operator '{:?}'", t),
                 }
             }
-            Ast::Abstraction(t, e) => {
-                todo!()
-            }
-            Ast::Application(e1, e2) => todo!(),
+            Ast::Abstraction(t, e) => Ok(Value::Func(t.clone(), (**e).clone())),
+            Ast::Application(e1, e2) => match self.interpret(e1, environment)? {
+                Value::Func(t, ast) => {
+                    let v2 = self.interpret(e2, environment)?;
+                    environment.insert(t.text(), v2);
+                    self.interpret(&ast, environment)
+                }
+                _ => panic!("SFL ERROR: cannot apply {:?}", e1),
+            },
         }
     }
 }

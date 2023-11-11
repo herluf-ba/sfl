@@ -1,1 +1,6 @@
-(\x -> \y -> x + y + 1) true 1
+# This here is a comment
+# And this is also!
+let fst = \x -> \y -> x 
+	in let snd = \x -> \y -> y
+	in
+		fst( snd(1 + 2)(4) )(5)
