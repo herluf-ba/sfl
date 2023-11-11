@@ -6,7 +6,7 @@ use std::{
 use crate::{
     language::{
         ast::Ast,
-        token::TokenKind,
+        token::{Token, TokenKind},
         types::{Context, FreeVar, Substitutable, Substitution, TType, TypeFunc},
     },
     message::{Content, Message, Severity},
@@ -14,15 +14,30 @@ use crate::{
 };
 
 pub struct TypeChecker {
+    source_path: PathBuf,
     errors: Vec<Message>,
     variable_counter: usize,
 }
 
 impl TypeChecker {
-    fn new() -> Self {
+    fn new(path: &PathBuf) -> Self {
         Self {
+            source_path: path.clone(),
             errors: Vec::new(),
             variable_counter: 0,
+        }
+    }
+
+    fn built_in(token: &Token) -> Option<TType> {
+        match token.kind {
+            TokenKind::Plus | TokenKind::Minus => Some(TType::Application(TypeFunc::Func {
+                input: Box::new(TType::Application(TypeFunc::Int)),
+                output: Box::new(TType::Application(TypeFunc::Func {
+                    input: Box::new(TType::Application(TypeFunc::Int)),
+                    output: Box::new(TType::Application(TypeFunc::Int)),
+                })),
+            })),
+            _ => None,
         }
     }
 
@@ -58,17 +73,25 @@ impl TypeChecker {
             })
     }
 
-    fn unify(&self, a: &TType, b: &TType) -> Result<Substitution, ()> {
+    fn unify(&mut self, expr: &Ast, a: &TType, b: &TType) -> Result<Substitution, ()> {
         match (a, b) {
             (TType::Variable(x), TType::Variable(y)) if x == y => Ok(Substitution::new()),
             (TType::Variable(x), _) => {
                 if a.contains(b) {
-                    // TODO: Return Err here and add error message to errors
-                    panic!("Infinite type detected!");
+                    self.errors.push(Message {
+                        severity: Severity::Error,
+                        position: expr.to_owned().into(),
+                        content: Content {
+                            message: "infinite type detected".to_string(),
+                            indicator_message: Some(" here".to_string()),
+                            fix_hint: None,
+                        },
+                        source_path: self.source_path.clone(),
+                    });
                 }
                 Ok(Substitution::from([(x.to_string(), b.clone())]))
             }
-            (_, TType::Variable(_)) => self.unify(b, a),
+            (_, TType::Variable(_)) => self.unify(expr, b, a),
             (TType::Application(x), TType::Application(y)) => match (x, y) {
                 (
                     TypeFunc::Func {
@@ -80,17 +103,38 @@ impl TypeChecker {
                         output: o2,
                     },
                 ) => {
-                    // TODO: this may be buggy '(\x -> true) false' becomes generic
-                    let mut s = Substitution::new();
-                    s = self.unify(i1, i2)?.apply(&s);
-                    s = self.unify(&s.apply(&**o1), &s.apply(&**o2))?.apply(&s);
-                    Ok(s)
+                    let s1 = self.unify(expr, i1, i2)?;
+                    let s2 = self.unify(expr, &s1.apply(&**o1), &s1.apply(&**o2))?;
+                    Ok(s1.apply(&s2))
                 }
                 (x, y) if x == y => Ok(Substitution::new()),
-                // TODO: Return Err here and add error message to errors
-                (x, y) => panic!("cannot unify '{:?}' and '{:?}'", x, y),
+                (_, _) => {
+                    self.errors.push(Message {
+                        severity: Severity::Error,
+                        position: expr.to_owned().into(),
+                        content: Content {
+                            message: format!("expected `{}` but found `{}`", a, b),
+                            indicator_message: Some(" here".to_string()),
+                            fix_hint: None,
+                        },
+                        source_path: self.source_path.clone(),
+                    });
+                    Err(())
+                }
             },
-            (x, y) => panic!("cannot unify '{:?}' and '{:?}'", x, y),
+            (_, _) => {
+                self.errors.push(Message {
+                    severity: Severity::Error,
+                    position: expr.to_owned().into(),
+                    content: Content {
+                        message: format!("expected `{}` found `{}`", a, b),
+                        indicator_message: Some(" here".to_string()),
+                        fix_hint: None,
+                    },
+                    source_path: self.source_path.clone(),
+                });
+                Err(())
+            }
         }
     }
 
@@ -107,22 +151,23 @@ impl TypeChecker {
                 _ => Err(()),
             },
             Ast::Name(n) => {
-                let name = n.text();
-                let Some(t) = ctx.get(&name) else {
+                if let Some(t) = ctx.get(&n.text()) {
+                    Ok((Substitution::new(), self.instantiate(t, None)))
+                } else if let Some(t) = TypeChecker::built_in(n) {
+                    Ok((Substitution::new(), self.instantiate(&t, None)))
+                } else {
                     self.errors.push(Message {
                         severity: Severity::Error,
                         position: n.position,
                         content: Content {
-                            message: format!("'{}' is not defined here", name),
+                            message: format!("'{}' is not defined here", n.text()),
                             indicator_message: None,
                             fix_hint: None,
                         },
                         source_path: n.source_path.clone(),
                     });
-                    return Err(());
-                };
-
-                Ok((Substitution::new(), self.instantiate(t, None)))
+                    Err(())
+                }
             }
             Ast::Abstraction(n, e) => {
                 let var = self.variable();
@@ -140,13 +185,13 @@ impl TypeChecker {
                 let (s2, e2_t) = self.w(&s1.apply(ctx), e2)?;
                 let var = self.variable();
                 let s3 = self.unify(
+                    e2,
                     &s2.apply(&e1_t),
                     &TType::Application(TypeFunc::Func {
                         input: Box::new(e2_t),
                         output: Box::new(var.clone()),
                     }),
                 )?;
-
                 Ok((s3.apply(&s2.apply(&s1)), s3.apply(&var)))
             }
             Ast::Let(n, e1, e2) => {
@@ -158,11 +203,15 @@ impl TypeChecker {
                 Ok((s2.apply(&s1), e2_t))
             }
             Ast::Err => Err(()),
-            Ast::BinaryOp(_, e1, e2) => {
-                let (s1, e1) = self.w(ctx, e1)?;
-                let (s2, e2) = self.w(&s1.apply(ctx), e2)?;
-                self.unify(&s2.apply(&e1), &e2)?;
-                Ok((s1.apply(&s1), e2))
+            Ast::BinaryOp(t, e1, e2) => {
+                // Built an ast where the operator is a function application and type check that.
+                // So "1 + 2" -> (+ 1) 2
+                let ast: Ast = Ast::Application(
+                    Box::new(Ast::Application(Box::new(Ast::Name(t.clone())), e1.clone())),
+                    e2.clone(),
+                );
+
+                self.w(ctx, &ast)
             }
         }
     }
@@ -172,20 +221,21 @@ pub type Input = crate::phase::ast_builder::Output;
 pub type Output = HashMap<PathBuf, TType>;
 impl Phase<Input, Output> for TypeChecker {
     fn new() -> Self {
-        TypeChecker::new()
+        TypeChecker::new(&PathBuf::new())
     }
 
     fn run(self: &mut Self, _config: &crate::config::Config, input: &Input) -> PhaseResult<Output> {
         let mut out = HashMap::new();
-        let mut errs = HashMap::new();
+        let mut errs = Vec::new();
 
         for (source_path, ast) in input {
-            *self = TypeChecker::new();
+            *self = TypeChecker::new(source_path);
             match self.w(&Context::new(), ast) {
                 Err(_) => {
-                    errs.insert(source_path.clone(), self.errors.clone());
+                    errs.append(&mut self.errors);
                 }
-                Ok((_, t)) => {
+                Ok((s, t)) => {
+                    println!("{:?}", s);
                     out.insert(source_path.clone(), t);
                 }
             };
@@ -196,11 +246,5 @@ impl Phase<Input, Output> for TypeChecker {
         } else {
             PhaseResult::Ok(out)
         }
-    }
-}
-
-impl Default for TypeChecker {
-    fn default() -> Self {
-        Self::new()
     }
 }

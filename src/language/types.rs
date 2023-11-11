@@ -1,6 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
-    fmt::Debug,
+    fmt::{Debug, Display},
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -11,6 +11,20 @@ pub enum TypeFunc {
     },
     Bool,
     Int,
+}
+
+impl Display for TypeFunc {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                TypeFunc::Func { input, output } => format!("{} -> {}", input, output),
+                TypeFunc::Bool => "bool".to_string(),
+                TypeFunc::Int => "int".to_string(),
+            }
+        )
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -33,6 +47,20 @@ impl TType {
                 _ => false,
             },
         }
+    }
+}
+
+impl Display for TType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                TType::Variable(v) => v.to_owned(),
+                TType::Application(f) => format!("{}", f),
+                TType::Quantifier { variable, inner } => format!("∀{} {}", variable, inner),
+            }
+        )
     }
 }
 

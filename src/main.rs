@@ -10,6 +10,7 @@ use crate::{
     message::Message,
     phase::{
         ast_builder::AstBuilder,
+        interpreter::Interpreter,
         lexer::Lexer,
         parser::Parser,
         phase::{Phase, PhaseResult},
@@ -88,6 +89,12 @@ fn run(config: Config) -> Result<(), ()> {
             .get(&PathBuf::from("./main.sfl"))
             .unwrap()
     );
+
+    let result = Interpreter::new().run(&config, &ast_result);
+    let result = complete_phase(&sources, &config, result);
+
+    println!("\n--- RESULT -----------\n{}", result.unwrap());
+
     Ok(())
 }
 

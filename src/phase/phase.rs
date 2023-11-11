@@ -1,14 +1,10 @@
-use std::{collections::HashMap, path::PathBuf};
-
 use crate::{config::Config, message::Message};
-
-type Errors = HashMap<PathBuf, Vec<Message>>;
 
 pub enum PhaseResult<R> {
     Ok(R),
-    SoftErr(R, Errors),
+    SoftErr(R, Vec<Message>),
     #[allow(dead_code)]
-    Err(Errors),
+    Err(Vec<Message>),
 }
 
 /// A compiler phase.

@@ -79,23 +79,17 @@ impl Message {
         format!("{message}\n{position}\n{source_line}\n{indicator}\n").to_string()
     }
 
-    pub fn format_errors(
-        sources: &HashMap<PathBuf, String>,
-        errors: &HashMap<PathBuf, Vec<Self>>,
-    ) -> String {
-        let mut out = Vec::new();
-        for (source_path, errors) in errors {
-            if errors.len() > 0 {
-                let messages = errors
-                    .iter()
-                    .map(|error| {
-                        error.format(sources.get(source_path).expect("source file to be present"))
-                    })
-                    .collect::<Vec<String>>();
-                out.push(messages.join("\n"));
-            }
-        }
-
-        out.join("\n")
+    pub fn format_errors(sources: &HashMap<PathBuf, String>, errors: &Vec<Self>) -> String {
+        errors
+            .iter()
+            .map(|error| {
+                error.format(
+                    sources
+                        .get(&error.source_path)
+                        .expect("source file to be present"),
+                )
+            })
+            .collect::<Vec<String>>()
+            .join("\n")
     }
 }

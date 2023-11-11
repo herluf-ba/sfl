@@ -325,13 +325,13 @@ impl Phase<Input, Output> for Parser {
 
     fn run(self: &mut Self, _config: &crate::config::Config, input: &Input) -> PhaseResult<Output> {
         let mut out = HashMap::new();
-        let mut errs = HashMap::new();
+        let mut errs = Vec::new();
 
         for (source_path, tokens) in input {
             *self = Parser::from(source_path, tokens);
             let cst = self.parse();
             if !self.errors.is_empty() {
-                errs.insert(source_path.clone(), self.errors.clone());
+                errs.append(&mut self.errors);
             }
 
             out.insert(source_path.clone(), cst);

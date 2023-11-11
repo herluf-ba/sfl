@@ -2,6 +2,8 @@ use std::fmt::Debug;
 
 use crate::language::token::Token;
 
+use super::token::Position;
+
 #[derive(Clone, PartialEq, Debug)]
 pub enum Ast {
     Err,
@@ -38,23 +40,20 @@ impl Ast {
 
         let children_str = match self {
             Ast::Expr(e) => vec![e.print(level + 1)],
-            Ast::Abstraction(t, e) => vec![format!("  '{}'", t.text()), e.print(level + 1)],
+            Ast::Abstraction(t, e) => vec![format!("{inset}  '{}'", t.text()), e.print(level + 1)],
             Ast::Application(e1, e2) => vec![e1.print(level + 1), e2.print(level + 1)],
             Ast::Let(t, e1, e2) => vec![
-                format!("  '{}'", t.text()),
+                format!("{inset}  '{}'", t.text()),
                 e1.print(level + 1),
                 e2.print(level + 1),
             ],
             Ast::BinaryOp(op, e1, e2) => vec![
                 e1.print(level + 1),
-                format!("  '{}'", op.text()),
+                format!("{inset}  '{}'", op.text()),
                 e2.print(level + 1),
             ],
             _ => Vec::new(),
         }
-        .iter()
-        .map(|s| format!("{inset}{s}"))
-        .collect::<Vec<String>>()
         .join("\n");
 
         format!("{inset}{kind_str}\n{children_str}")
@@ -62,5 +61,31 @@ impl Ast {
 
     pub fn pretty_print(&self) -> String {
         self.print(0)
+    }
+}
+
+impl Into<Position> for Ast {
+    fn into(self) -> Position {
+        match self {
+            Ast::Err => Position {
+                line: 0,
+                column: 0,
+                begin: 0,
+                end: 0,
+            },
+            Ast::Expr(e) => e.as_ref().to_owned().into(),
+            Ast::Abstraction(_, e) => {
+                let e_pos: Position = e.as_ref().to_owned().into();
+                e_pos
+            }
+            Ast::Application(e1, _) => {
+                let e1_pos: Position = e1.as_ref().to_owned().into();
+                e1_pos
+            }
+            Ast::Literal(t) => t.position,
+            Ast::Let(n, _, _) => n.position,
+            Ast::Name(t) => t.position,
+            Ast::BinaryOp(op, _, _) => op.position,
+        }
     }
 }

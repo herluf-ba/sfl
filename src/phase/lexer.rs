@@ -204,19 +204,19 @@ impl Phase<Input, Output> for Lexer {
 
     fn run(self: &mut Self, _config: &Config, input: &Input) -> PhaseResult<Output> {
         let mut out = HashMap::new();
-        let mut errs = HashMap::new();
+        let mut errs = Vec::new();
 
         for source in input {
             *self = Lexer::new(source);
             let tokens = self.lex();
 
             if !self.is_ok {
-                let errors: Vec<Message> = tokens
+                let mut errors: Vec<Message> = tokens
                     .iter()
                     .filter(|t| matches!(t.kind, TokenKind::Error(_)))
                     .map(|t| t.try_into().expect("token to be an erorr"))
                     .collect();
-                errs.insert(source.0.clone(), errors);
+                errs.append(&mut errors);
             }
 
             out.insert(source.0.clone(), tokens);
