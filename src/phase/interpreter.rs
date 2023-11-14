@@ -16,7 +16,7 @@ pub struct Interpreter {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {
     Bool(bool),
-    Int(usize),
+    Number(f64),
     Func(Token, Ast),
 }
 
@@ -24,7 +24,7 @@ impl Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Value::Bool(v) => write!(f, "{}", v),
-            Value::Int(v) => write!(f, "{}", v),
+            Value::Number(v) => write!(f, "{}", v),
             Value::Func(_, _) => write!(f, "func",), // TODO: Can we do better here?
         }
     }
@@ -44,7 +44,7 @@ impl Interpreter {
             Ast::Err => Err(()),
             Ast::Expr(e) => self.interpret(e, environment),
             Ast::Literal(t) => match t.kind {
-                TokenKind::LiteralInt(v) => Ok(Value::Int(v)),
+                TokenKind::LiteralNumber(v) => Ok(Value::Number(v)),
                 TokenKind::LiteralBool(v) => Ok(Value::Bool(v)),
                 _ => panic!("SFL ERROR: unhandled literal '{:?}'", t),
             },
@@ -64,22 +64,22 @@ impl Interpreter {
                 let r2 = self.interpret(e2, environment)?;
                 match t.kind {
                     TokenKind::Plus => {
-                        let Value::Int(n1) = r1 else {
+                        let Value::Number(n1) = r1 else {
                             panic!("SFL ERROR: Typechecker missed binary op '{:?}'", t);
                         };
-                        let Value::Int(n2) = r2 else {
+                        let Value::Number(n2) = r2 else {
                             panic!("SFL ERROR: Typechecker missed binary op '{:?}'", t);
                         };
-                        Ok(Value::Int(n1 + n2))
+                        Ok(Value::Number(n1 + n2))
                     }
                     TokenKind::Minus => {
-                        let Value::Int(n1) = r1 else {
+                        let Value::Number(n1) = r1 else {
                             panic!("SFL ERROR: Typechecker missed binary op '{:?}'", t);
                         };
-                        let Value::Int(n2) = r2 else {
+                        let Value::Number(n2) = r2 else {
                             panic!("SFL ERROR: Typechecker missed binary op '{:?}'", t);
                         };
-                        Ok(Value::Int(n1 - n2))
+                        Ok(Value::Number(n1 - n2))
                     }
                     _ => panic!("SFL ERROR: unhandled binary operator '{:?}'", t),
                 }

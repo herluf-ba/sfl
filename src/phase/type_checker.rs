@@ -31,10 +31,10 @@ impl TypeChecker {
     fn built_in(token: &Token) -> Option<TType> {
         match token.kind {
             TokenKind::Plus | TokenKind::Minus => Some(TType::Application(TypeFunc::Func {
-                input: Box::new(TType::Application(TypeFunc::Int)),
+                input: Box::new(TType::Application(TypeFunc::Number)),
                 output: Box::new(TType::Application(TypeFunc::Func {
-                    input: Box::new(TType::Application(TypeFunc::Int)),
-                    output: Box::new(TType::Application(TypeFunc::Int)),
+                    input: Box::new(TType::Application(TypeFunc::Number)),
+                    output: Box::new(TType::Application(TypeFunc::Number)),
                 })),
             })),
             _ => None,
@@ -142,8 +142,8 @@ impl TypeChecker {
         match expr {
             Ast::Expr(e) => self.w(ctx, e),
             Ast::Literal(l) => match l.kind {
-                TokenKind::LiteralInt(_) => {
-                    Ok((Substitution::new(), TType::Application(TypeFunc::Int)))
+                TokenKind::LiteralNumber(_) => {
+                    Ok((Substitution::new(), TType::Application(TypeFunc::Number)))
                 }
                 TokenKind::LiteralBool(_) => {
                     Ok((Substitution::new(), TType::Application(TypeFunc::Bool)))

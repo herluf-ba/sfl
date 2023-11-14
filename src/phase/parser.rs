@@ -10,136 +10,205 @@ use crate::{
 };
 
 ///// GRAMMAR /////
+// file = def*
+fn file(p: &mut Parser) {
+    let m = p.open();
 
-// expression -> binary_op | application
-fn expression(p: &mut Parser) {
-    let mut lhs = binary_op(p, Eof);
+    while !p.eof() {
+        if p.at(TokenKind::KeywordDef) {
+            def(p)
+        } else {
+            p.advance_with_error(Message {
+                severity: Severity::Error,
+                position: p.position(),
+                content: Content {
+                    message: "expected a function".to_string(),
+                    indicator_message: Some("here".to_string()),
+                    fix_hint: Some("define a function using `def`".to_string()),
+                },
+                source_path: p.source_path.clone(),
+            });
+        }
+    }
+
+    p.close(m, File);
+}
+
+fn def(p: &mut Parser) {
+    assert!(p.at(KeywordDef));
+    let m = p.open();
+
+    p.expect(KeywordDef);
+    name(p);
+    if p.at(ParenL) {
+        params(p);
+    }
+
+    if p.eat(Colon) {
+        type_expr(p);
+    }
+
+    if p.eat(CurlyL) {
+        statement(p);
+        p.expect(CurlyR);
+    }
+
+    p.close(m, Definition);
+}
+
+fn params(p: &mut Parser) {
+    assert!(p.at(TokenKind::ParenL));
+    let m = p.open();
+
+    p.expect(TokenKind::ParenL);
+    while !p.at(TokenKind::ParenR) && !p.eof() {
+        if p.at(TokenKind::Name("".to_string())) {
+            param(p);
+        } else {
+            break;
+        }
+    }
+    p.expect(TokenKind::ParenR);
+
+    p.close(m, Params);
+}
+
+fn param(p: &mut Parser) {
+    let m = p.open();
+    name(p);
+    p.expect(TokenKind::Colon);
+    type_expr(p);
+    if !p.at(TokenKind::ParenR) {
+        p.expect(TokenKind::Comma);
+    }
+
+    p.close(m, Param);
+}
+
+/////// TYPES ///////
+fn type_expr(p: &mut Parser) {
+    let m = p.open();
+    name(p);
+    p.close(m, TypeExpr);
+}
+
+//////// EXPRESSIONS /////////
+fn statement(p: &mut Parser) {
+    let mut lhs = expression(p);
+    while p.at(Semi) {
+        let m = p.open_before(lhs);
+        p.close(m, Statement);
+        lhs = expression(p);
+    }
+}
+
+fn expression(p: &mut Parser) -> MarkClosed {
+    expr_rec(p, &Eof)
+}
+
+fn expr_rec(p: &mut Parser, left: &TokenKind) -> MarkClosed {
+    let mut lhs = expr_delimited(p);
+
+    while p.at(ParenL) {
+        let m = p.open_before(lhs);
+        arg_list(p);
+        lhs = p.close(m, Call);
+    }
+
     loop {
-        match p.nth(0) {
-            Eof | KeywordIn | KeywordThen | KeywordElse | ParenR => break,
-            _ => {
-                let m = p.open_before(lhs);
-                expression_delimited(p);
-                lhs = p.close(m, Application)
-            }
+        let right = p.nth(0);
+        if right_binds_tighter(left, &right) {
+            let m = p.open_before(lhs);
+            p.advance();
+            expr_rec(p, &right);
+            lhs = p.close(m, Binary);
+        } else {
+            break lhs;
         }
     }
 }
 
-fn binary_op(p: &mut Parser, left: TokenKind) -> MarkClosed {
-    let mut lhs = expression_delimited(p);
+fn arg_list(p: &mut Parser) {
+    assert!(p.at(ParenL));
+    let m = p.open();
 
-    match p.nth(0) {
-        Plus | Minus => loop {
-            let right = p.nth(0);
-            if right_binds_tighter(left.clone(), right.clone()) {
-                let m = p.open_before(lhs);
-                p.advance();
-                binary_op(p, right);
-                lhs = p.close(m, BinaryOp);
-            } else {
-                break;
-            }
-        },
-        _ => {}
+    p.expect(ParenL);
+    while !p.at(ParenR) && !p.eof() {
+        arg(p);
     }
+    p.expect(ParenR);
 
-    lhs
+    p.close(m, Args);
 }
 
-fn right_binds_tighter(left: TokenKind, right: TokenKind) -> bool {
-    fn tightness(kind: TokenKind) -> Option<usize> {
-        [
-            // Precedence table
-            &[Plus, Minus],
-            // &[Start, Slash],
-        ]
-        .iter()
-        .position(|l| l.contains(&kind))
+fn arg(p: &mut Parser) {
+    let m = p.open();
+
+    expression(p);
+    if !p.at(ParenR) {
+        p.expect(Comma);
     }
 
-    let Some(right_tightness) = tightness(right) else {
-        return false;
-    };
-
-    let Some(left_tightness) = tightness(left.clone()) else {
-        assert!(left == Eof);
-        return true;
-    };
-
-    right_tightness > left_tightness
+    p.close(m, Arg);
 }
 
-// expression_delimited -> let_binding | if_expression | abstraction | paren | literal | name;
-fn expression_delimited(p: &mut Parser) -> MarkClosed {
+fn expr_delimited(p: &mut Parser) -> MarkClosed {
+    let m = p.open();
     match p.nth(0) {
-        Backslash => abstraction(p),
-        KeywordLet => let_binding(p),
-        KeywordIf => if_expression(p),
-        ParenL => paren(p),
-        TokenKind::Name(_) => name(p),
-        LiteralInt(_) | LiteralBool(_) => literal(p),
+        LiteralNumber(_) | LiteralBool(_) => {
+            p.advance();
+            p.close(m, Literal)
+        }
+
+        TokenKind::Name(_) => {
+            p.advance();
+            p.close(m, TreeKind::Name)
+        }
+
+        CurlyL => {
+            p.expect(CurlyL);
+            statement(p);
+            p.expect(CurlyR);
+            p.close(m, Block)
+        }
+
+        ParenL => {
+            p.expect(ParenL);
+            expression(p);
+            p.expect(ParenR);
+            p.close(m, Expr)
+        }
+
         _ => {
-            let m = p.open();
             if !p.eof() {
-                p.advance()
+                p.advance();
             }
             p.close(m, ErrorTree)
         }
     }
 }
 
-// abstraction -> '\' name '->' expression;
-fn abstraction(p: &mut Parser) -> MarkClosed {
-    assert!(p.at(Backslash));
-    let m = p.open();
-    p.expect(Backslash);
-    name(p);
-    p.expect(Arrow);
-    expression(p);
-    p.close(m, Abstraction)
-}
+fn right_binds_tighter(left: &TokenKind, right: &TokenKind) -> bool {
+    fn tightness(kind: &TokenKind) -> Option<usize> {
+        [
+            // Precedence table
+            &[Plus, Minus],
+            // &[Start, Slash],
+        ]
+        .iter()
+        .position(|l| l.contains(kind))
+    }
 
-// let_binding -> 'let' name '=' expression 'in';
-fn let_binding(p: &mut Parser) -> MarkClosed {
-    assert!(p.at(KeywordLet));
-    let m = p.open();
-    p.expect(KeywordLet);
-    name(p);
-    p.expect(Equal);
-    expression(p);
-    p.expect(KeywordIn);
-    expression(p);
-    p.close(m, Let)
-}
+    let Some(right_tightness) = tightness(right) else {
+        return false;
+    };
 
-// if_expression -> 'if' expression 'then' expression 'else' expression;
-fn if_expression(p: &mut Parser) -> MarkClosed {
-    assert!(p.at(KeywordIf));
-    let m = p.open();
-    p.expect(KeywordIf);
-    expression(p);
-    p.expect(KeywordThen);
-    expression(p);
-    p.expect(KeywordElse);
-    expression(p);
-    p.close(m, If)
-}
+    let Some(left_tightness) = tightness(left) else {
+        assert!(*left == Eof);
+        return true;
+    };
 
-// paren -> '(' expression ')';
-fn paren(p: &mut Parser) -> MarkClosed {
-    assert!(p.at(ParenL));
-    let m = p.open();
-    p.expect(ParenL);
-    expression(p);
-    p.expect(ParenR);
-    p.close(m, Expr)
-}
-
-fn literal(p: &mut Parser) -> MarkClosed {
-    let m = p.open();
-    p.advance();
-    p.close(m, Literal)
+    right_tightness > left_tightness
 }
 
 fn name(p: &mut Parser) -> MarkClosed {
@@ -223,8 +292,15 @@ impl Parser {
         self.pos += 1;
     }
 
+    fn advance_with_error(&mut self, error: Message) {
+        let m = self.open();
+        self.errors.push(error);
+        self.advance();
+        self.close(m, ErrorTree);
+    }
+
     fn eof(&self) -> bool {
-        self.pos == self.tokens.len()
+        self.pos == self.tokens.len() - 1
     }
 
     fn position(&self) -> Position {
@@ -305,13 +381,13 @@ impl Parser {
         }
 
         assert!(stack.len() == 1);
-        // assert!(tokens.next().is_some_and(|t| matches!(t.kind, Eof)));
+        assert!(tokens.next().is_some_and(|t| matches!(t.kind, Eof)));
 
         stack.pop().unwrap()
     }
 
     fn parse(&mut self) -> Tree {
-        expression(self);
+        file(self);
         self.build_tree()
     }
 }

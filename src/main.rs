@@ -69,31 +69,39 @@ fn run(config: Config) -> Result<(), ()> {
     let parser_result = Parser::new().run(&config, &lexer_result);
     let parser_result = complete_phase(&sources, &config, parser_result)?;
 
-    let ast_result = AstBuilder::new().run(&config, &parser_result);
-    let ast_result = complete_phase(&sources, &config, ast_result)?;
-
     println!(
-        "--- AST ------------\n{}",
-        ast_result
+        "{}",
+        parser_result
             .get(&PathBuf::from("./main.sfl"))
             .unwrap()
             .pretty_print()
     );
 
-    let typechecker_result = TypeChecker::new().run(&config, &ast_result);
-    let typechecker_result = complete_phase(&sources, &config, typechecker_result)?;
+    // let ast_result = AstBuilder::new().run(&config, &parser_result);
+    // let ast_result = complete_phase(&sources, &config, ast_result)?;
 
-    println!(
-        "\n--- TYPE -----------\n{:?}",
-        typechecker_result
-            .get(&PathBuf::from("./main.sfl"))
-            .unwrap()
-    );
+    // println!(
+    //     "--- AST ------------\n{}",
+    //     ast_result
+    //         .get(&PathBuf::from("./main.sfl"))
+    //         .unwrap()
+    //         .pretty_print()
+    // );
 
-    let result = Interpreter::new().run(&config, &ast_result);
-    let result = complete_phase(&sources, &config, result);
+    // let typechecker_result = TypeChecker::new().run(&config, &ast_result);
+    // let typechecker_result = complete_phase(&sources, &config, typechecker_result)?;
 
-    println!("\n--- RESULT -----------\n{}", result.unwrap());
+    // println!(
+    //     "\n--- TYPE -----------\n{:?}",
+    //     typechecker_result
+    //         .get(&PathBuf::from("./main.sfl"))
+    //         .unwrap()
+    // );
+
+    // let result = Interpreter::new().run(&config, &ast_result);
+    // let result = complete_phase(&sources, &config, result);
+
+    // println!("\n--- RESULT -----------\n{}", result.unwrap());
 
     Ok(())
 }

@@ -3,7 +3,7 @@ use std::{collections::HashMap, fmt::Debug, path::PathBuf};
 use crate::{
     config::Config,
     language::token::{Position, Token, TokenKind},
-    message::Message,
+    message::{Content, Message, Severity},
     phase::{Phase, PhaseResult},
 };
 
@@ -21,6 +21,7 @@ pub struct Lexer {
     start_column: usize,
     source_path: PathBuf,
     characters: Vec<char>,
+    errors: Vec<Message>,
 }
 
 impl Lexer {
@@ -34,6 +35,7 @@ impl Lexer {
             start_column: 0,
             source_path: source.0.clone(),
             characters: source.1.to_owned().chars().collect(),
+            errors: Vec::new(),
         }
     }
 
@@ -97,13 +99,31 @@ impl Lexer {
     }
 
     fn number(self: &mut Self) -> TokenKind {
-        while !self.eof() && self.nth(0).is_digit(10) {
+        let p = self.nth(0);
+        let mut found_dot = false;
+        while !self.eof() && (p.is_digit(10) || p == '.') {
+            if p == '.' {
+                if found_dot {
+                    self.errors.push(Message {
+                        severity: Severity::Error,
+                        position: self.position(),
+                        source_path: self.source_path.clone(),
+                        content: Content {
+                            message: format!("this number has two decimal dots"),
+                            indicator_message: Some("second dot is here".to_string()),
+                            fix_hint: None,
+                        },
+                    });
+                }
+                found_dot = true
+            }
             self.advance();
+            self.nth(0);
         }
 
         let lexeme = self.lexeme().expect("lexeme to be available");
-        let num = lexeme.parse::<usize>().expect("lexeme to be a number");
-        TokenKind::LiteralInt(num)
+        let num = lexeme.parse::<f64>().expect("lexeme to be a number");
+        TokenKind::LiteralNumber(num)
     }
 
     fn name(self: &mut Self) -> TokenKind {
@@ -150,15 +170,17 @@ impl Lexer {
             Some(_) if self.keyword("->") => TokenKind::Arrow,
             Some('-') => TokenKind::Minus,
             Some(':') => TokenKind::Colon,
+            Some(';') => TokenKind::Semi,
+            Some(',') => TokenKind::Comma,
             Some('=') => TokenKind::Equal,
             Some('(') => TokenKind::ParenL,
             Some(')') => TokenKind::ParenR,
-            Some('\\') => TokenKind::Backslash,
+            Some('{') => TokenKind::CurlyL,
+            Some('}') => TokenKind::CurlyR,
             Some(_) if self.keyword("if") => TokenKind::KeywordIf,
-            Some(_) if self.keyword("then") => TokenKind::KeywordThen,
             Some(_) if self.keyword("else") => TokenKind::KeywordElse,
             Some(_) if self.keyword("let") => TokenKind::KeywordLet,
-            Some(_) if self.keyword("in") => TokenKind::KeywordIn,
+            Some(_) if self.keyword("def") => TokenKind::KeywordDef,
             Some(_) if self.keyword("true") => TokenKind::LiteralBool(true),
             Some(_) if self.keyword("false") => TokenKind::LiteralBool(false),
             Some(x) if x.is_digit(10) => self.number(),

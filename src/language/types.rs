@@ -10,7 +10,7 @@ pub enum TypeFunc {
         output: Box<TType>,
     },
     Bool,
-    Int,
+    Number,
 }
 
 impl Display for TypeFunc {
@@ -21,7 +21,7 @@ impl Display for TypeFunc {
             match self {
                 TypeFunc::Func { input, output } => format!("{} -> {}", input, output),
                 TypeFunc::Bool => "bool".to_string(),
-                TypeFunc::Int => "int".to_string(),
+                TypeFunc::Number => "int".to_string(),
             }
         )
     }

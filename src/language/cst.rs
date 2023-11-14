@@ -5,14 +5,22 @@ use crate::language::token::Token;
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum TreeKind {
     ErrorTree,
+    File,
     Expr,
-    Abstraction,
-    Application,
+    Definition,
+    Params,
+    Param,
+    Call,
+    Args,
+    Arg,
+    TypeExpr,
     Literal,
-    BinaryOp,
+    Binary,
     If,
     Let,
     Name,
+    Block,
+    Statement,
 }
 
 #[derive(Clone, PartialEq, Debug)]

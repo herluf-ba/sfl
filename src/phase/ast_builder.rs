@@ -19,61 +19,7 @@ fn build(tree: &Tree) -> Ast {
             };
             Ast::Expr(Box::new(build(&t)))
         }
-        Abstraction => {
-            let Child::Tree(ref n) = tree.children[1] else {
-                return Ast::Err;
-            };
-            let Child::Token(ref t) = n.children[0] else {
-                return Ast::Err;
-            };
-            let Child::Tree(ref e) = tree.children[3] else {
-                return Ast::Err;
-            };
-            Ast::Abstraction(t.clone(), Box::new(build(&e)))
-        }
-        Application => {
-            let Child::Tree(ref e1) = tree.children[0] else {
-                return Ast::Err;
-            };
-
-            let Child::Tree(ref e2) = tree.children[1] else {
-                return Ast::Err;
-            };
-
-            Ast::Application(Box::new(build(&e1)), Box::new(build(&e2)))
-        }
-        Let => {
-            let Child::Tree(ref n) = tree.children[1] else {
-                return Ast::Err;
-            };
-            let Child::Token(ref t) = n.children[0] else {
-                return Ast::Err;
-            };
-            let Child::Tree(ref e1) = tree.children[3] else {
-                return Ast::Err;
-            };
-            let Child::Tree(ref e2) = tree.children[5] else {
-                return Ast::Err;
-            };
-
-            Ast::Let(t.clone(), Box::new(build(&e1)), Box::new(build(&e2)))
-        }
-        Name => {
-            let Child::Token(ref v) = tree.children[0] else {
-                return Ast::Err;
-            };
-
-            Ast::Name(v.clone())
-        }
-        Literal => {
-            let Child::Token(ref v) = tree.children[0] else {
-                return Ast::Err;
-            };
-
-            Ast::Literal(v.clone())
-        }
-
-        BinaryOp => {
+        Binary => {
             let Child::Tree(ref e1) = tree.children[0] else {
                 return Ast::Err;
             };
@@ -86,7 +32,6 @@ fn build(tree: &Tree) -> Ast {
 
             Ast::BinaryOp(op.clone(), Box::new(build(e1)), Box::new(build(e2)))
         }
-        If => todo!(),
     }
 }
 

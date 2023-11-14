@@ -5,7 +5,7 @@ use crate::{
     phase::lexer::LexerError,
 };
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(PartialEq, PartialOrd, Clone)]
 pub struct Token {
     /// The path to the source from which this position stems
     pub source_path: PathBuf,
@@ -19,19 +19,19 @@ impl Token {
     }
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
+#[derive(PartialEq, PartialOrd, Clone, Debug)]
 pub enum TokenKind {
     // Values
-    LiteralInt(usize),
+    LiteralNumber(f64),
     LiteralBool(bool),
     Name(String),
 
     // Keywords
     KeywordIf,
     KeywordElse,
-    KeywordThen,
     KeywordLet,
-    KeywordIn,
+    KeywordThen,
+    KeywordDef,
 
     // Operators
     Plus,
@@ -40,10 +40,13 @@ pub enum TokenKind {
     // Misc
     ParenL,
     ParenR,
-    Backslash,
-    Colon,
+    CurlyL,
+    CurlyR,
     Arrow,
+    Colon,
     Equal,
+    Comma,
+    Semi,
 
     // Special
     Eof,
@@ -56,24 +59,27 @@ impl Display for TokenKind {
             f,
             "{}",
             match self {
-                TokenKind::LiteralInt(i) => i.to_string(),
+                TokenKind::LiteralNumber(i) => i.to_string(),
                 TokenKind::LiteralBool(i) => i.to_string(),
-                TokenKind::Name(ref i) => i.to_owned(),
+                TokenKind::Name(i) => i.to_string(),
                 TokenKind::KeywordIf => "if".to_string(),
                 TokenKind::KeywordElse => "else".to_string(),
-                TokenKind::KeywordThen => "then".to_string(),
                 TokenKind::KeywordLet => "let".to_string(),
-                TokenKind::KeywordIn => "in".to_string(),
                 TokenKind::Plus => "+".to_string(),
                 TokenKind::Minus => "-".to_string(),
                 TokenKind::ParenL => "(".to_string(),
                 TokenKind::ParenR => ")".to_string(),
-                TokenKind::Backslash => "\\".to_string(),
                 TokenKind::Colon => ":".to_string(),
                 TokenKind::Arrow => "->".to_string(),
                 TokenKind::Equal => "=".to_string(),
                 TokenKind::Eof => "<eof>".to_string(),
                 TokenKind::Error(_) => "<error>".to_string(),
+                TokenKind::KeywordDef => "def".to_string(),
+                TokenKind::CurlyL => "{".to_string(),
+                TokenKind::CurlyR => "}".to_string(),
+                TokenKind::Comma => ",".to_string(),
+                TokenKind::Semi => ";".to_string(),
+                TokenKind::KeywordThen => "then".to_string(),
             }
         )
     }
